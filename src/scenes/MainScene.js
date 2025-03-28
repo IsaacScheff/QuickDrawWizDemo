@@ -6,6 +6,8 @@ class MainScene extends Phaser.Scene {
     this.shieldActive = false;
     this.nextShotTime = 0;
     this.shotFrameToCheck = 9;
+    this.wizardOriginalTint = 0xffffff;
+    this.shieldOriginalTint = 0xffffff;
   }
 
   preload() {
@@ -22,6 +24,7 @@ class MainScene extends Phaser.Scene {
     this.add.image(0, 0, 'background').setOrigin(0, 0);
     this.cowboy = this.add.sprite(190, 160, 'cowboy'); 
     this.wizard = this.add.sprite(66, 160, 'wizardOne');
+    //this.wizardOriginalTint = this.wizard.tint;
 
     this.anims.create({
       key: 'idle',
@@ -97,9 +100,43 @@ class MainScene extends Phaser.Scene {
   checkShotResult() {
     if (this.shieldActive) {
       console.log("blocked!");
+      this.flashShieldWhite();
     } else {
       console.log("hit!");
+      this.flashWizardRed();
     }
+  }
+  
+  flashWizardRed() {
+    this.tweens.addCounter({
+      from: 0,
+      to: 3,
+      duration: 300,
+      onUpdate: tween => {
+        const value = Math.floor(tween.getValue());
+        this.wizard.tint = value % 2 === 0 ? 0xff0000 : this.wizardOriginalTint;
+      },
+      onComplete: () => {
+        this.wizard.tint = this.wizardOriginalTint;
+      }
+    });
+  }
+  
+  flashShieldWhite() {
+    this.tweens.addCounter({
+      from: 0,
+      to: 3,
+      duration: 300,
+      onUpdate: tween => {
+        const value = Math.floor(tween.getValue());
+        this.shield.tint = value % 2 === 0 ? 0x00a2ff : this.shieldOriginalTint;
+        this.shield.setScale(value % 2 === 0 ? 1.1 : 1.0);
+      },
+      onComplete: () => {
+        this.shield.tint = this.shieldOriginalTint;
+        this.shield.setScale(1.0);
+      }
+    });
   }
 }
 
