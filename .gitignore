@@ -1,0 +1,24 @@
+# Node modules
+node_modules/
+
+# Distribution folder
+/dist/
+
+# Environment files
+.env
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log
+yarn-error.log
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-workspace
+
+# Optional: Exclude source maps if you generate them
+*.map
