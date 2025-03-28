@@ -6,16 +6,31 @@ class MainScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load assets here
+    this.load.image('background', 'assets/images/cowboyBackground.png');
+    this.load.spritesheet('cowboy', 'assets/images/Cowboy.png', { 
+      frameWidth: 48, 
+      frameHeight: 48 
+    });
   }
 
   create() {
-    // Create game objects here
-    this.add.text(100, 100, 'Hello Phaser!', { fill: '#0f0' });
+    this.add.image(0, 0, 'background').setOrigin(0, 0);
+    this.cowboy = this.add.sprite(190, 160, 'cowboy'); 
+    
+    this.anims.create({
+      key: 'idle',
+      frames: this.anims.generateFrameNumbers('cowboy', {
+        start: 0,
+        end: 6
+      }),
+      frameRate: 10,
+      repeat: -1
+    });
+    
+    this.cowboy.play('idle');
   }
 
   update() {
-    // Update game objects here
   }
 }
 

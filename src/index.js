@@ -3,9 +3,10 @@ import MainScene from './scenes/MainScene.js';
 
 const config = {
   type: Phaser.AUTO,
-  width: 800,
-  height: 600,
-  scene: [MainScene]
+  width: 256,
+  height: 224,
+  scene: [MainScene],
+  zoom: 3
 };
 
 new Phaser.Game(config);
