@@ -8,6 +8,20 @@ class MainScene extends Phaser.Scene {
     this.shotFrameToCheck = 9;
     this.wizardOriginalTint = 0xffffff;
     this.shieldOriginalTint = 0xffffff;
+
+    this.isWizardAttacking = false;
+    this.attackChargeTimer = null;
+
+    this.wizAttackTime = 1000;
+    this.cowboyMinReset = 2000;
+    this.cowboyMaxReset = 4000;
+
+    this.shieldCooldown = false;
+    this.shieldCooldownDuration = 1000;
+    this.shieldCooldownTimer = null;
+    this.lastShieldTime = 0;
+    this.shieldSpellFrameRate = 8 / (this.shieldCooldownDuration / 1000);
+    this.shieldTime = 500;
   }
 
   preload() {
@@ -18,13 +32,17 @@ class MainScene extends Phaser.Scene {
     });
     this.load.image('wizardOne', 'assets/images/WizardOne.png');
     this.load.image('wizardShield', 'assets/images/WizShieldOne.png');
+    this.load.image('wizardOneAttack', 'assets/images/WizardOneAttack.png');
+    this.load.spritesheet('shieldSpellIcon', 'assets/images/ShieldSpellIcon.png', {
+      frameWidth: 21,
+      frameHeight: 21,
+    });
   }
 
   create() {
     this.add.image(0, 0, 'background').setOrigin(0, 0);
     this.cowboy = this.add.sprite(190, 160, 'cowboy'); 
     this.wizard = this.add.sprite(66, 160, 'wizardOne');
-    //this.wizardOriginalTint = this.wizard.tint;
 
     this.anims.create({
       key: 'idle',
@@ -39,13 +57,25 @@ class MainScene extends Phaser.Scene {
       frameRate: 20,
       repeat: 0
     });
+
+    this.anims.create({
+      key: 'shieldIconCooldown',
+      frames: this.anims.generateFrameNumbers('shieldSpellIcon', { start: 0, end: 7 }),
+      frameRate: this.shieldSpellFrameRate,
+      repeat: 0
+    });
     
     this.cowboy.play('idle');
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.fKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);  
     
     this.shield = this.add.image(this.wizard.x + 20, this.wizard.y, 'wizardShield')
       .setVisible(false)
       .setDepth(1);
+
+    this.shieldCooldownIndicator = this.add.sprite(30, 30, 'shieldSpellIcon');
+    this.shieldCooldownIndicator.setFrame(7);
+    this.updateShieldCooldownVisual();
     
     this.scheduleRandomShot();
   }
@@ -58,25 +88,39 @@ class MainScene extends Phaser.Scene {
       this.scheduleRandomShot();
     }
     
-    if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+    if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && !this.isWizardAttacking) {
       this.activateShield();
     }
+
+    if (Phaser.Input.Keyboard.JustDown(this.fKey) && !this.isWizardAttacking) {
+      this.startWizardAttack();
+    }
+
+    this.updateShieldCooldownVisual();
   }
   
   scheduleRandomShot() {
-    const delay = Phaser.Math.Between(3000, 6000);
+    const delay = Phaser.Math.Between(this.cowboyMinReset, this.cowboyMaxReset);
     this.nextShotTime = this.time.now + delay;
   }
   
   activateShield() {
-    if (!this.shieldActive) {
-      this.shieldActive = true;
-      this.shield.setVisible(true);
-      
-      this.time.delayedCall(1000, () => {
-        this.shield.setVisible(false);
-        this.shieldActive = false;
-      });
+    if (!this.shieldActive && !this.shieldCooldown) {
+        this.shieldCooldownIndicator.setFrame(0);
+        this.shieldActive = true;
+        this.shield.setVisible(true);
+        this.lastShieldTime = this.time.now;
+        
+        this.time.delayedCall(this.shieldTime, () => {
+            this.shield.setVisible(false);
+            this.shieldActive = false;
+
+            this.shieldCooldown = true;
+            this.shieldCooldownTimer = this.time.delayedCall(this.shieldCooldownDuration, () => {
+                this.shieldCooldown = false;
+                this.shieldCooldownTimer = null;
+            });
+        });
     }
   }
   
@@ -104,6 +148,7 @@ class MainScene extends Phaser.Scene {
     } else {
       console.log("hit!");
       this.flashWizardRed();
+      this.interruptWizardAttack();
     }
   }
   
@@ -137,6 +182,61 @@ class MainScene extends Phaser.Scene {
         this.shield.setScale(1.0);
       }
     });
+  }
+
+  startWizardAttack() {
+    this.isWizardAttacking = true;
+    
+    this.wizard.setTexture('wizardOneAttack');
+    
+    this.attackChargeTimer = this.time.delayedCall(this.wizAttackTime, () => {
+      this.completeWizardAttack();
+    });
+  }
+  
+  interruptWizardAttack() {
+    if (this.isWizardAttacking) {
+
+      if (this.attackChargeTimer) {
+        this.attackChargeTimer.destroy();
+        this.attackChargeTimer = null;
+      }
+
+      this.wizard.setTexture('wizardOne');
+      this.isWizardAttacking = false;
+    }
+  }
+  
+  completeWizardAttack() {    
+    this.flashCowboyRed();
+    
+    this.wizard.setTexture('wizardOne');
+    this.isWizardAttacking = false;
+  }
+  
+  flashCowboyRed() {
+    this.tweens.addCounter({
+      from: 0,
+      to: 3,
+      duration: 300,
+      onUpdate: tween => {
+        const value = Math.floor(tween.getValue());
+        this.cowboy.tint = value % 2 === 0 ? 0xff0000 : 0xffffff;
+      },
+      onComplete: () => {
+        this.cowboy.tint = 0xffffff;
+      }
+    });
+  }
+
+  updateShieldCooldownVisual() {
+    if (this.shieldCooldown) {
+        if (!this.shieldCooldownIndicator.anims.isPlaying) {
+            this.shieldCooldownIndicator.play('shieldIconCooldown');
+        }
+    } else {
+        this.shieldCooldownIndicator.anims.stop();
+    }
   }
 }
 
