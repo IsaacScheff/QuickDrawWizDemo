@@ -40,9 +40,9 @@ class MainScene extends Phaser.Scene {
   }
 
   create() {
-    this.add.image(0, 0, 'background').setOrigin(0, 0);
-    this.cowboy = this.add.sprite(190, 160, 'cowboy'); 
-    this.wizard = this.add.sprite(66, 160, 'wizardOne');
+    this.add.image(0, 0, 'background').setOrigin(0, 0.2);
+    this.cowboy = this.add.sprite(190, 130, 'cowboy'); 
+    this.wizard = this.add.sprite(66, 130, 'wizardOne');
 
     this.anims.create({
       key: 'idle',
@@ -73,7 +73,7 @@ class MainScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(1);
 
-    this.shieldCooldownIndicator = this.add.sprite(30, 30, 'shieldSpellIcon');
+    this.shieldCooldownIndicator = this.add.sprite(30, 200, 'shieldSpellIcon');
     this.shieldCooldownIndicator.setFrame(7);
     this.updateShieldCooldownVisual();
     
