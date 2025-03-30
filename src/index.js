@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import MainScene from './scenes/MainScene.js';
+import ShowdownScene from './scenes/ShowdownScene.js';
 
 const config = {
   type: Phaser.AUTO,
   width: 256,
   height: 224,
-  scene: [MainScene],
+  scene: [ShowdownScene],
   zoom: 3
 };
 

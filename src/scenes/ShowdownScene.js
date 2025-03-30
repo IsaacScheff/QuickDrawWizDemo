@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
-class MainScene extends Phaser.Scene {
+class ShowdownScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'MainScene' });
+    super({ key: 'ShowdownScene' });
     this.shieldActive = false;
     this.nextShotTime = 0;
     this.shotFrameToCheck = 9;
@@ -28,8 +28,12 @@ class MainScene extends Phaser.Scene {
     this.attackCooldownTimer = null;
     this.lastAttackTime = 0;
     this.fireballSpellFrameRate = 8 / (this.attackCooldownDuration / 1000);
+    this.attackDamage = 25;
     
     this.backgroundColor = 0xadd8e6
+
+    this.cowboyMaxHealth = 100;
+    this.cowboyHealth = this.cowboyMaxHealth;
   }
 
   preload() {
@@ -102,6 +106,14 @@ class MainScene extends Phaser.Scene {
     this.fireballCooldownIndicator.setFrame(7);
     
     this.scheduleRandomShot();
+
+    this.healthBarBg = this.add.graphics()
+    .fillStyle(0xff0000, 1)
+    .fillRect(190 - 25, 130 - 30, 50, 5);
+
+    this.healthBar = this.add.graphics()
+        .fillStyle(0x00ff00, 1)
+        .fillRect(190 - 25, 130 - 30, 50, 5);
   }
 
   update() {
@@ -150,6 +162,8 @@ class MainScene extends Phaser.Scene {
   }
   
   playQuickDraw() {
+    if (this.cowboyHealth <= 0) return;
+    
     if (this.cowboy.anims.currentAnim?.key !== 'quickDraw') {
       this.cowboy.play('quickDraw');
       
@@ -243,13 +257,40 @@ class MainScene extends Phaser.Scene {
   }
   
   completeWizardAttack() {    
+    this.damageCowboy(this.attackDamage);
     this.flashCowboyRed();
     
     this.wizard.setTexture('wizardOne');
     this.isWizardAttacking = false;
   }
+
+  damageCowboy(amount) {
+    this.cowboyHealth = Phaser.Math.Clamp(this.cowboyHealth - amount, 0, this.cowboyMaxHealth);
+    this.updateHealthBar();
+    
+    if (this.cowboyHealth <= 0) {
+      this.cowboy.tint = 0x000000;
+        this.cowboyDefeated();
+    }
+  }
   
+  updateHealthBar() {
+    const healthPercent = this.cowboyHealth / this.cowboyMaxHealth;
+    
+    this.healthBar.clear()
+        .fillStyle(0x00ff00, 1)
+        .fillRect(190 - 25, 130 - 30, 50 * healthPercent, 5);
+    
+    if (healthPercent < 0.3) {
+        this.healthBar.fillStyle(0xff0000, 1);
+    } else if (healthPercent < 0.6) {
+        this.healthBar.fillStyle(0xffff00, 1);
+    }
+  }
+
   flashCowboyRed() {
+    if (this.cowboyHealth <= 0) return;
+
     this.tweens.addCounter({
       from: 0,
       to: 3,
@@ -286,6 +327,15 @@ class MainScene extends Phaser.Scene {
       this.fireballCooldownIndicator.setFrame(7);
     }
   }
+
+  cowboyDefeated() {
+    // Play defeat animation or handle game over
+    console.log("Cowboy defeated!");
+    this.cowboy.anims.stop();
+    this.cowboy.tint = 0x000000;
+
+    this.nextShotTime = Infinity;
+  }
 }
 
-export default MainScene;
+export default ShowdownScene;
