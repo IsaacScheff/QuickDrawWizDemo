@@ -22,6 +22,14 @@ class MainScene extends Phaser.Scene {
     this.lastShieldTime = 0;
     this.shieldSpellFrameRate = 8 / (this.shieldCooldownDuration / 1000);
     this.shieldTime = 500;
+
+    this.attackCooldown = false;
+    this.attackCooldownDuration = 500;
+    this.attackCooldownTimer = null;
+    this.lastAttackTime = 0;
+    this.fireballSpellFrameRate = 8 / (this.attackCooldownDuration / 1000);
+    
+    this.backgroundColor = 0xadd8e6
   }
 
   preload() {
@@ -37,12 +45,18 @@ class MainScene extends Phaser.Scene {
       frameWidth: 21,
       frameHeight: 21,
     });
+    this.load.spritesheet('fireballSpellIcon', 'assets/images/FireballSpellIcon.png', {
+      frameWidth: 21,
+      frameHeight: 21,
+    });
   }
 
   create() {
     this.add.image(0, 0, 'background').setOrigin(0, 0.2);
     this.cowboy = this.add.sprite(190, 130, 'cowboy'); 
     this.wizard = this.add.sprite(66, 130, 'wizardOne');
+
+    this.cameras.main.setBackgroundColor(this.backgroundColor);
 
     this.anims.create({
       key: 'idle',
@@ -64,6 +78,13 @@ class MainScene extends Phaser.Scene {
       frameRate: this.shieldSpellFrameRate,
       repeat: 0
     });
+
+    this.anims.create({
+      key: 'fireballIconCooldown',
+      frames: this.anims.generateFrameNumbers('fireballSpellIcon', { start: 0, end: 7 }),
+      frameRate: this.shieldSpellFrameRate,
+      repeat: 0
+    });
     
     this.cowboy.play('idle');
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -73,9 +94,12 @@ class MainScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(1);
 
-    this.shieldCooldownIndicator = this.add.sprite(30, 200, 'shieldSpellIcon');
+    this.shieldCooldownIndicator = this.add.sprite(100, 200, 'shieldSpellIcon');
     this.shieldCooldownIndicator.setFrame(7);
     this.updateShieldCooldownVisual();
+
+    this.fireballCooldownIndicator = this.add.sprite(140, 200, 'fireballSpellIcon');
+    this.fireballCooldownIndicator.setFrame(7);
     
     this.scheduleRandomShot();
   }
@@ -92,11 +116,12 @@ class MainScene extends Phaser.Scene {
       this.activateShield();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.fKey) && !this.isWizardAttacking) {
+    if (Phaser.Input.Keyboard.JustDown(this.fKey) && !this.isWizardAttacking && !this.attackCooldown) {
       this.startWizardAttack();
     }
 
     this.updateShieldCooldownVisual();
+    this.updateAttackCooldownVisual();
   }
   
   scheduleRandomShot() {
@@ -185,13 +210,23 @@ class MainScene extends Phaser.Scene {
   }
 
   startWizardAttack() {
-    this.isWizardAttacking = true;
-    
-    this.wizard.setTexture('wizardOneAttack');
-    
-    this.attackChargeTimer = this.time.delayedCall(this.wizAttackTime, () => {
-      this.completeWizardAttack();
-    });
+    if (!this.isWizardAttacking && !this.attackCooldown) {
+      this.isWizardAttacking = true;
+      this.fireballCooldownIndicator.setFrame(0);
+        
+      this.wizard.setTexture('wizardOneAttack');
+        
+      this.attackChargeTimer = this.time.delayedCall(this.wizAttackTime, () => {
+        this.completeWizardAttack();
+            
+        this.attackCooldown = true;
+        this.lastAttackTime = this.time.now;
+        this.attackCooldownTimer = this.time.delayedCall(this.attackCooldownDuration, () => {
+          this.attackCooldown = false;
+            this.attackCooldownTimer = null;
+        });
+      });
+    }
   }
   
   interruptWizardAttack() {
@@ -236,6 +271,19 @@ class MainScene extends Phaser.Scene {
         }
     } else {
         this.shieldCooldownIndicator.anims.stop();
+    }
+  }
+
+  updateAttackCooldownVisual() {
+    if (this.attackCooldown) {
+        if (!this.fireballCooldownIndicator.anims.isPlaying) {
+            this.fireballCooldownIndicator.play('fireballIconCooldown');
+        }
+    } else if(this.isWizardAttacking) {
+      this.fireballCooldownIndicator.setFrame(0);
+    } else {
+      this.fireballCooldownIndicator.anims.stop();
+      this.fireballCooldownIndicator.setFrame(7);
     }
   }
 }
