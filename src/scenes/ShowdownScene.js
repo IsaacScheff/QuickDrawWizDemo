@@ -98,11 +98,11 @@ class ShowdownScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(1);
 
-    this.shieldCooldownIndicator = this.add.sprite(100, 200, 'shieldSpellIcon');
+    this.shieldCooldownIndicator = this.add.sprite(100, 200, 'shieldSpellIcon').setInteractive();;
     this.shieldCooldownIndicator.setFrame(7);
     this.updateShieldCooldownVisual();
 
-    this.fireballCooldownIndicator = this.add.sprite(140, 200, 'fireballSpellIcon');
+    this.fireballCooldownIndicator = this.add.sprite(140, 200, 'fireballSpellIcon').setInteractive();;
     this.fireballCooldownIndicator.setFrame(7);
     
     this.scheduleRandomShot();
@@ -118,6 +118,18 @@ class ShowdownScene extends Phaser.Scene {
 
   update() {
     const now = this.time.now;
+
+    this.fireballCooldownIndicator.on('pointerdown', () => {
+      if (!this.isWizardAttacking && !this.attackCooldown) {
+        this.startWizardAttack();
+      }
+    });
+
+    this.shieldCooldownIndicator.on('pointerdown', () => {
+      if (!this.isWizardAttacking) {
+        this.activateShield();
+      }
+    });
     
     if (now >= this.nextShotTime && this.cowboy.anims.currentAnim?.key === 'idle') {
       this.playQuickDraw();
