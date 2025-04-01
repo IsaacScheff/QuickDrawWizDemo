@@ -34,7 +34,7 @@ class ShowdownScene extends Phaser.Scene {
 
     this.cowboyMaxHealth = 100;
     this.cowboyShotDamage = 80; 
-    
+
     this.wizardMaxHealth = 100;
   }
 
@@ -97,7 +97,8 @@ class ShowdownScene extends Phaser.Scene {
     
     this.cowboy.play('idle');
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.fKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);  
+    this.fKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+    this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     
     this.shield = this.add.image(this.wizard.x + 20, this.wizard.y, 'wizardShield')
       .setVisible(false)
@@ -133,6 +134,10 @@ class ShowdownScene extends Phaser.Scene {
 
   update() {
     const now = this.time.now;
+
+    if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+      this.showConfirmationBox();
+    }
 
     this.fireballCooldownIndicator.on('pointerdown', () => {
       if (!this.isWizardAttacking && !this.attackCooldown) {
