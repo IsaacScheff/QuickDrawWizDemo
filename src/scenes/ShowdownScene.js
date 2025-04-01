@@ -33,11 +33,9 @@ class ShowdownScene extends Phaser.Scene {
     this.backgroundColor = 0xadd8e6
 
     this.cowboyMaxHealth = 100;
-    this.cowboyHealth = this.cowboyMaxHealth;
     this.cowboyShotDamage = 80; 
-
+    
     this.wizardMaxHealth = 100;
-    this.wizardHealth = this.wizardMaxHealth;
   }
 
   preload() {
@@ -60,6 +58,9 @@ class ShowdownScene extends Phaser.Scene {
   }
 
   create() {
+    this.cowboyHealth = this.cowboyMaxHealth;
+    this.wizardHealth = this.wizardMaxHealth;
+
     this.add.image(0, 0, 'background').setOrigin(0, 0.2);
     this.cowboy = this.add.sprite(190, 130, 'cowboy'); 
     this.wizard = this.add.sprite(66, 130, 'wizardOne');
@@ -126,6 +127,8 @@ class ShowdownScene extends Phaser.Scene {
     this.wizardHealthBar = this.add.graphics()
     .fillStyle(0x00ff00, 1)
     .fillRect(66 - 25, 130 - 30, 50, 5);
+
+    this.createConfirmationBox();
   }
 
   update() {
@@ -361,6 +364,10 @@ class ShowdownScene extends Phaser.Scene {
     this.cowboy.tint = 0x000000;
 
     this.nextShotTime = Infinity;
+
+    this.time.delayedCall(1000, () => {
+      this.showConfirmationBox();
+    });
   }
 
   updateWizardHealthBar() {
@@ -406,6 +413,120 @@ class ShowdownScene extends Phaser.Scene {
         this.shieldCooldownTimer.destroy();
         this.shieldCooldownTimer = null;
     }
+
+    this.time.delayedCall(1000, () => {
+      this.showConfirmationBox();
+    });
+  }
+
+  createConfirmationBox() {
+    this.confirmationBg = this.add.rectangle(
+      this.cameras.main.centerX,
+      this.cameras.main.centerY,
+      300,
+      150,
+      0x000000,
+      0.7
+    ).setOrigin(0.5).setDepth(10).setVisible(false);
+  
+    this.confirmationText = this.add.text(
+      this.cameras.main.centerX,
+      this.cameras.main.centerY - 30,
+      'Return to Main Menu?',
+      { 
+        fontSize: '24px',
+        color: '#FFFFFF',
+        fontFamily: 'Arial'
+      }
+    ).setOrigin(0.5).setDepth(11).setVisible(false);
+  
+    this.yesButton = this.add.text(
+      this.cameras.main.centerX - 60,
+      this.cameras.main.centerY + 30,
+      'Yes',
+      { 
+        fontSize: '20px',
+        color: '#FFFFFF',
+        backgroundColor: '#008000',
+        padding: { x: 10, y: 5 }
+      }
+    ).setOrigin(0.5).setDepth(11).setVisible(false)
+     .setInteractive()
+     .on('pointerdown', () => {
+      this.scene.stop('ShowdownScene');
+       this.scene.start('MainMenuScene');
+     });
+  
+    this.noButton = this.add.text(
+      this.cameras.main.centerX + 60,
+      this.cameras.main.centerY + 30,
+      'No',
+      { 
+        fontSize: '20px',
+        color: '#FFFFFF',
+        backgroundColor: '#800000',
+        padding: { x: 10, y: 5 }
+      }
+    ).setOrigin(0.5).setDepth(11).setVisible(false)
+     .setInteractive()
+     .on('pointerdown', () => {
+       this.hideConfirmationBox();
+     });
+  }
+  
+  showConfirmationBox() {
+    this.confirmationBg.setVisible(true);
+    this.confirmationText.setVisible(true);
+    this.yesButton.setVisible(true);
+    this.noButton.setVisible(true);
+  }
+  
+  hideConfirmationBox() {
+    this.confirmationBg.setVisible(false);
+    this.confirmationText.setVisible(false);
+    this.yesButton.setVisible(false);
+    this.noButton.setVisible(false);
+  }
+
+  resetGame() {
+    this.shieldActive = false;
+    this.nextShotTime = 0;
+    this.isWizardAttacking = false;
+    this.attackCooldown = false;
+    this.shieldCooldown = false;
+    
+    this.cowboyHealth = this.cowboyMaxHealth;
+    this.wizardHealth = this.wizardMaxHealth;
+    
+    this.cowboy.setTint(0xffffff);
+    this.wizard.setTint(0xffffff);
+    this.wizard.setTexture('wizardOne');
+    this.shield.setVisible(false);
+    
+    this.cowboy.play('idle');
+
+    this.updateCowboyHealthBar();
+    this.updateWizardHealthBar();
+
+    this.shieldCooldownIndicator.setFrame(7);
+    this.fireballCooldownIndicator.setFrame(7);
+
+    if (this.attackChargeTimer) {
+        this.attackChargeTimer.destroy();
+        this.attackChargeTimer = null;
+    }
+    if (this.shieldCooldownTimer) {
+        this.shieldCooldownTimer.destroy();
+        this.shieldCooldownTimer = null;
+    }
+    if (this.attackCooldownTimer) {
+        this.attackCooldownTimer.destroy();
+        this.attackCooldownTimer = null;
+    }
+    
+    this.scheduleRandomShot();
+    
+    this.hideConfirmationBox();
   }
 }
 
