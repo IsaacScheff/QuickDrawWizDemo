@@ -34,7 +34,7 @@ class ShowdownScene extends Phaser.Scene {
 
     this.cowboyMaxHealth = 100;
     this.cowboyHealth = this.cowboyMaxHealth;
-    this.cowboyShotDamage = 34; 
+    this.cowboyShotDamage = 80; 
 
     this.wizardMaxHealth = 100;
     this.wizardHealth = this.wizardMaxHealth;
@@ -370,7 +370,7 @@ class ShowdownScene extends Phaser.Scene {
     this.wizardHealthBar.clear();
     
     if (healthPercent < 0.3) {
-        this.wizardHealthBar.fillStyle(0xff0000, 1); //red
+        this.wizardHealthBar.fillStyle(0xffa500, 1); //orange
     } else if (healthPercent < 0.6) {
         this.wizardHealthBar.fillStyle(0xffff00, 1); //yellow
     } else {
