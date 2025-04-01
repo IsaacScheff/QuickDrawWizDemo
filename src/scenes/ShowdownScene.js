@@ -1,3 +1,9 @@
+//TODO: add different cowboy enemies
+//TODO: add a type of match where there is an enemy on each side; 
+// player must switch which side they are looking at before shielding 
+// using either the arrow keys or H and L 
+// (??this might not work great but I'm tempted to sneak vim bindings into the control options) 
+// could do J and K or J and L or some other configuration that allows home row use still
 import Phaser from 'phaser';
 
 class ShowdownScene extends Phaser.Scene {
@@ -13,8 +19,6 @@ class ShowdownScene extends Phaser.Scene {
     this.attackChargeTimer = null;
 
     this.wizAttackTime = 1000;
-    this.cowboyMinReset = 2000;
-    this.cowboyMaxReset = 4000;
 
     this.shieldCooldown = false;
     this.shieldCooldownDuration = 1000;
@@ -32,15 +36,50 @@ class ShowdownScene extends Phaser.Scene {
     
     this.backgroundColor = 0xadd8e6
 
-    this.cowboyMaxHealth = 100;
-    this.cowboyShotDamage = 80; 
-
     this.wizardMaxHealth = 100;
   }
+
+  cowboyTypes = {
+    default: {
+        texture: 'cowboy',
+        maxHealth: 100,
+        shotDamage: 80,
+        idleAnim: { start: 0, end: 6, frameRate: 10 },
+        quickDrawAnim: { start: 14, end: 31, frameRate: 20 },
+        minReset: 2000,
+        maxReset: 4000
+    },
+    redbeard: {
+        texture: 'cowboyRedbeard',
+        maxHealth: 120,
+        shotDamage: 70,
+        idleAnim: { start: 0, end: 6, frameRate: 8 },
+        quickDrawAnim: { start: 14, end: 31, frameRate: 18 },
+        minReset: 2500,
+        maxReset: 4500
+    },
+    whitesuit: {
+        texture: 'cowboyWhitesuit',
+        maxHealth: 80,
+        shotDamage: 100,
+        idleAnim: { start: 0, end: 6, frameRate: 12 },
+        quickDrawAnim: { start: 14, end: 31, frameRate: 24 },
+        minReset: 1500,
+        maxReset: 3500
+    }
+  };
 
   preload() {
     this.load.image('background', 'assets/images/cowboyBackground.png');
     this.load.spritesheet('cowboy', 'assets/images/Cowboy.png', { 
+      frameWidth: 48, 
+      frameHeight: 48 
+    });
+    this.load.spritesheet('cowboyRedbeard', 'assets/images/Cowboy_Redbeard.png', { 
+      frameWidth: 48, 
+      frameHeight: 48 
+    });
+    this.load.spritesheet('cowboyWhitesuit', 'assets/images/Cowboy_WhiteSuit.png', { 
       frameWidth: 48, 
       frameHeight: 48 
     });
@@ -58,44 +97,63 @@ class ShowdownScene extends Phaser.Scene {
   }
 
   create() {
-    this.cowboyHealth = this.cowboyMaxHealth;
     this.wizardHealth = this.wizardMaxHealth;
 
+    this.cowboyData = this.game.registry.get('cowboyData') || { type: 'default' };
+    const cowboyType = this.cowboyTypes[this.cowboyData.type] || this.cowboyTypes.default;
+    
+    this.cowboyMaxHealth = cowboyType.maxHealth;
+    this.cowboyHealth = this.cowboyMaxHealth;
+    this.cowboyShotDamage = cowboyType.shotDamage;
+    this.cowboyMinReset = cowboyType.minReset;
+    this.cowboyMaxReset = cowboyType.maxReset;
+    
     this.add.image(0, 0, 'background').setOrigin(0, 0.2);
-    this.cowboy = this.add.sprite(190, 130, 'cowboy'); 
-    this.wizard = this.add.sprite(66, 130, 'wizardOne');
-
     this.cameras.main.setBackgroundColor(this.backgroundColor);
-
-    this.anims.create({
-      key: 'idle',
-      frames: this.anims.generateFrameNumbers('cowboy', { start: 0, end: 6 }),
-      frameRate: 10,
+    
+    this.createAnimationIfNotExists('idle', {
+      texture: cowboyType.texture,
+      frames: { 
+          start: cowboyType.idleAnim.start, 
+          end: cowboyType.idleAnim.end 
+      },
+      frameRate: cowboyType.idleAnim.frameRate,
       repeat: -1
     });
-    
-    this.anims.create({
-      key: 'quickDraw',
-      frames: this.anims.generateFrameNumbers('cowboy', { start: 14, end: 31 }),
-      frameRate: 20,
+
+    this.createAnimationIfNotExists('quickDraw', {
+      texture: cowboyType.texture,
+      frames: { 
+          start: cowboyType.quickDrawAnim.start, 
+          end: cowboyType.quickDrawAnim.end 
+      },
+      frameRate: cowboyType.quickDrawAnim.frameRate,
       repeat: 0
     });
 
-    this.anims.create({
-      key: 'shieldIconCooldown',
-      frames: this.anims.generateFrameNumbers('shieldSpellIcon', { start: 0, end: 7 }),
+    // Create spell icon animations
+    this.createAnimationIfNotExists('shieldIconCooldown', {
+      texture: 'shieldSpellIcon',
+      frames: { start: 0, end: 7 },
       frameRate: this.shieldSpellFrameRate,
       repeat: 0
     });
 
-    this.anims.create({
-      key: 'fireballIconCooldown',
-      frames: this.anims.generateFrameNumbers('fireballSpellIcon', { start: 0, end: 7 }),
+    this.createAnimationIfNotExists('fireballIconCooldown', {
+      texture: 'fireballSpellIcon',
+      frames: { start: 0, end: 7 },
       frameRate: this.shieldSpellFrameRate,
       repeat: 0
     });
+
+    this.cowboy = this.add.sprite(190, 130, cowboyType.texture); 
+    this.wizard = this.add.sprite(66, 130, 'wizardOne');
     
-    this.cowboy.play('idle');
+    if (this.anims.exists('idle')) {
+      this.cowboy.play('idle');
+    } else {
+        console.warn('Idle animation not found for cowboy');
+    }
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.fKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
@@ -104,11 +162,11 @@ class ShowdownScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(1);
 
-    this.shieldCooldownIndicator = this.add.sprite(100, 200, 'shieldSpellIcon').setInteractive();;
+    this.shieldCooldownIndicator = this.add.sprite(100, 200, 'shieldSpellIcon').setInteractive();
     this.shieldCooldownIndicator.setFrame(7);
     this.updateShieldCooldownVisual();
 
-    this.fireballCooldownIndicator = this.add.sprite(140, 200, 'fireballSpellIcon').setInteractive();;
+    this.fireballCooldownIndicator = this.add.sprite(140, 200, 'fireballSpellIcon').setInteractive();
     this.fireballCooldownIndicator.setFrame(7);
     
     this.scheduleRandomShot();
@@ -492,22 +550,29 @@ class ShowdownScene extends Phaser.Scene {
     this.yesButton.setVisible(false);
     this.noButton.setVisible(false);
   }
-
   resetGame() {
+    this.cowboyData = this.game.registry.get('cowboyData') || { type: 'default' };
+    const cowboyType = this.cowboyTypes[this.cowboyData.type] || this.cowboyTypes.default;
+
+    this.cowboyMaxHealth = cowboyType.maxHealth;
+    this.cowboyHealth = this.cowboyMaxHealth;
+    this.cowboyShotDamage = cowboyType.shotDamage;
+    this.cowboyMinReset = cowboyType.minReset;
+    this.cowboyMaxReset = cowboyType.maxReset;
+    
     this.shieldActive = false;
     this.nextShotTime = 0;
     this.isWizardAttacking = false;
     this.attackCooldown = false;
     this.shieldCooldown = false;
-    
-    this.cowboyHealth = this.cowboyMaxHealth;
+
     this.wizardHealth = this.wizardMaxHealth;
-    
-    this.cowboy.setTint(0xffffff);
     this.wizard.setTint(0xffffff);
     this.wizard.setTexture('wizardOne');
     this.shield.setVisible(false);
-    
+
+    this.cowboy.setTexture(cowboyType.texture);
+    this.cowboy.setTint(0xffffff);
     this.cowboy.play('idle');
 
     this.updateCowboyHealthBar();
@@ -528,10 +593,34 @@ class ShowdownScene extends Phaser.Scene {
         this.attackCooldownTimer.destroy();
         this.attackCooldownTimer = null;
     }
-    
+
     this.scheduleRandomShot();
-    
+
     this.hideConfirmationBox();
+  }
+
+  createAnimationIfNotExists(key, config) {
+    if (!this.anims.exists(key)) {
+        if (!this.textures.exists(config.texture)) {
+            console.error(`Texture "${config.texture}" not found for animation "${key}"`);
+            return;
+        }
+        
+        try {
+            this.anims.create({
+                key: key,
+                frames: this.anims.generateFrameNumbers(config.texture, {
+                    start: config.frames.start,
+                    end: config.frames.end
+                }),
+                frameRate: config.frameRate,
+                repeat: config.repeat
+            });
+            console.log(`Created animation "${key}" using texture "${config.texture}"`);
+        } catch (error) {
+            console.error(`Failed to create animation "${key}":`, error);
+        }
+    }
   }
 }
 
