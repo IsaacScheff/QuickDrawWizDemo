@@ -34,6 +34,10 @@ class ShowdownScene extends Phaser.Scene {
 
     this.cowboyMaxHealth = 100;
     this.cowboyHealth = this.cowboyMaxHealth;
+    this.cowboyShotDamage = 34; 
+
+    this.wizardMaxHealth = 100;
+    this.wizardHealth = this.wizardMaxHealth;
   }
 
   preload() {
@@ -107,13 +111,21 @@ class ShowdownScene extends Phaser.Scene {
     
     this.scheduleRandomShot();
 
-    this.healthBarBg = this.add.graphics()
+    this.cowboyHealthBarBg = this.add.graphics()
     .fillStyle(0xff0000, 1)
     .fillRect(190 - 25, 130 - 30, 50, 5);
 
-    this.healthBar = this.add.graphics()
+    this.cowboyHealthBar = this.add.graphics()
         .fillStyle(0x00ff00, 1)
         .fillRect(190 - 25, 130 - 30, 50, 5);
+
+    this.wizardHealthBarBg = this.add.graphics()
+    .fillStyle(0xff0000, 1)
+    .fillRect(66 - 25, 130 - 30, 50, 5);
+
+    this.wizardHealthBar = this.add.graphics()
+    .fillStyle(0x00ff00, 1)
+    .fillRect(66 - 25, 130 - 30, 50, 5);
   }
 
   update() {
@@ -191,19 +203,21 @@ class ShowdownScene extends Phaser.Scene {
       });
     }
   }
-  
   checkShotResult() {
     if (this.shieldActive) {
       console.log("blocked!");
       this.flashShieldWhite();
     } else {
       console.log("hit!");
+      this.damageWizard(this.cowboyShotDamage);
       this.flashWizardRed();
       this.interruptWizardAttack();
     }
   }
   
   flashWizardRed() {
+    if (this.wizardHealth <= 0) return;
+
     this.tweens.addCounter({
       from: 0,
       to: 3,
@@ -278,7 +292,7 @@ class ShowdownScene extends Phaser.Scene {
 
   damageCowboy(amount) {
     this.cowboyHealth = Phaser.Math.Clamp(this.cowboyHealth - amount, 0, this.cowboyMaxHealth);
-    this.updateHealthBar();
+    this.updateCowboyHealthBar();
     
     if (this.cowboyHealth <= 0) {
       this.cowboy.tint = 0x000000;
@@ -286,17 +300,17 @@ class ShowdownScene extends Phaser.Scene {
     }
   }
   
-  updateHealthBar() {
+  updateCowboyHealthBar() {
     const healthPercent = this.cowboyHealth / this.cowboyMaxHealth;
     
-    this.healthBar.clear()
+    this.cowboyHealthBar.clear()
         .fillStyle(0x00ff00, 1)
         .fillRect(190 - 25, 130 - 30, 50 * healthPercent, 5);
     
     if (healthPercent < 0.3) {
-        this.healthBar.fillStyle(0xff0000, 1);
+        this.cowboyHealthBar.fillStyle(0xff0000, 1);
     } else if (healthPercent < 0.6) {
-        this.healthBar.fillStyle(0xffff00, 1);
+        this.cowboyHealthBar.fillStyle(0xffff00, 1);
     }
   }
 
@@ -347,6 +361,51 @@ class ShowdownScene extends Phaser.Scene {
     this.cowboy.tint = 0x000000;
 
     this.nextShotTime = Infinity;
+  }
+
+  updateWizardHealthBar() {
+    const healthPercent = this.wizardHealth / this.wizardMaxHealth;
+    const width = 50 * healthPercent;
+
+    this.wizardHealthBar.clear();
+    
+    if (healthPercent < 0.3) {
+        this.wizardHealthBar.fillStyle(0xff0000, 1); //red
+    } else if (healthPercent < 0.6) {
+        this.wizardHealthBar.fillStyle(0xffff00, 1); //yellow
+    } else {
+        this.wizardHealthBar.fillStyle(0x00ff00, 1); //green
+    }
+    
+    this.wizardHealthBar.fillRect(66 - 25, 130 - 30, width, 5);
+  }
+
+  damageWizard(amount) {
+    this.wizardHealth = Phaser.Math.Clamp(this.wizardHealth - amount, 0, this.wizardMaxHealth);
+    this.updateWizardHealthBar();
+    
+    if (this.wizardHealth <= 0) {
+        this.wizardDefeated();
+    }
+  }
+
+  wizardDefeated() {
+    console.log("Wizard defeated!");
+    this.wizard.setTint(0x000000);
+    this.wizard.anims.stop();
+    
+    this.isWizardAttacking = false;
+    this.shieldActive = false;
+    this.shield.setVisible(false);
+    
+    if (this.attackChargeTimer) {
+        this.attackChargeTimer.destroy();
+        this.attackChargeTimer = null;
+    }
+    if (this.shieldCooldownTimer) {
+        this.shieldCooldownTimer.destroy();
+        this.shieldCooldownTimer = null;
+    }
   }
 }
 
