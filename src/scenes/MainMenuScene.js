@@ -76,6 +76,7 @@ export default class MainMenuScene extends Phaser.Scene {
         
         showdownButton.on('pointerup', () => {
             showdownButton.setFillStyle(0x8a4a4a);
+            this.game.registry.set('cowboyData', { type: 'cowboy' });
             this.scene.start('ShowdownScene');
         });
 
