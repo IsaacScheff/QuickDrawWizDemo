@@ -49,7 +49,7 @@ class ShowdownScene extends Phaser.Scene {
         minReset: 2000,
         maxReset: 4000
     },
-    redbeard: {
+    cowboyRedbeard: {
         texture: 'cowboyRedbeard',
         maxHealth: 120,
         shotDamage: 70,
@@ -58,7 +58,7 @@ class ShowdownScene extends Phaser.Scene {
         minReset: 2500,
         maxReset: 4500
     },
-    whitesuit: {
+    cowboyWhitesuit: {
         texture: 'cowboyWhitesuit',
         maxHealth: 80,
         shotDamage: 100,
@@ -100,7 +100,7 @@ class ShowdownScene extends Phaser.Scene {
     this.wizardHealth = this.wizardMaxHealth;
 
     this.cowboyData = this.game.registry.get('cowboyData') || { type: 'default' };
-    const cowboyType = this.cowboyTypes[this.cowboyData.type] || this.cowboyTypes.default;
+    const cowboyType = this.cowboyTypes[this.cowboyData] || this.cowboyTypes.default;
     
     this.cowboyMaxHealth = cowboyType.maxHealth;
     this.cowboyHealth = this.cowboyMaxHealth;
