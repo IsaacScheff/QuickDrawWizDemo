@@ -99,8 +99,11 @@ class ShowdownScene extends Phaser.Scene {
   create() {
     this.wizardHealth = this.wizardMaxHealth;
 
-    this.cowboyData = this.game.registry.get('cowboyData') || { type: 'default' };
-    const cowboyType = this.cowboyTypes[this.cowboyData] || this.cowboyTypes.default;
+    const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const cowboyType = this.cowboyTypes[cowboyTypeKey];
+
+    const idleKey = `${cowboyTypeKey}_idle`;
+    const quickDrawKey = `${cowboyTypeKey}_quickDraw`;
     
     this.cowboyMaxHealth = cowboyType.maxHealth;
     this.cowboyHealth = this.cowboyMaxHealth;
@@ -110,26 +113,24 @@ class ShowdownScene extends Phaser.Scene {
     
     this.add.image(0, 0, 'background').setOrigin(0, 0.2);
     this.cameras.main.setBackgroundColor(this.backgroundColor);
-    
-    this.createAnimationIfNotExists('idle', {
-      texture: cowboyType.texture,
-      frames: { 
-          start: cowboyType.idleAnim.start, 
-          end: cowboyType.idleAnim.end 
-      },
-      frameRate: cowboyType.idleAnim.frameRate,
-      repeat: -1
-    });
 
-    this.createAnimationIfNotExists('quickDraw', {
-      texture: cowboyType.texture,
-      frames: { 
-          start: cowboyType.quickDrawAnim.start, 
-          end: cowboyType.quickDrawAnim.end 
-      },
-      frameRate: cowboyType.quickDrawAnim.frameRate,
-      repeat: 0
-    });
+    if (!this.anims.exists(idleKey)) {
+      this.anims.create({
+          key: idleKey,
+          frames: this.anims.generateFrameNumbers(cowboyType.texture, cowboyType.idleAnim),
+          frameRate: cowboyType.idleAnim.frameRate,
+          repeat: -1
+      });
+    }
+    
+    if (!this.anims.exists(quickDrawKey)) {
+        this.anims.create({
+            key: quickDrawKey,
+            frames: this.anims.generateFrameNumbers(cowboyType.texture, cowboyType.quickDrawAnim),
+            frameRate: cowboyType.quickDrawAnim.frameRate, 
+            repeat: 0
+        });
+    }
 
     this.createAnimationIfNotExists('shieldIconCooldown', {
       texture: 'shieldSpellIcon',
@@ -147,12 +148,13 @@ class ShowdownScene extends Phaser.Scene {
 
     this.cowboy = this.add.sprite(190, 130, cowboyType.texture); 
     this.wizard = this.add.sprite(66, 130, 'wizardOne');
-    
-    if (this.anims.exists('idle')) {
-      this.cowboy.play('idle');
-    } else {
-        console.warn('Idle animation not found for cowboy');
-    }
+
+    this.nextShotTime = this.time.now + Phaser.Math.Between(
+        cowboyType.minReset, 
+        cowboyType.maxReset
+    );
+    this.cowboy.play(idleKey);
+
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.fKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
@@ -207,8 +209,11 @@ class ShowdownScene extends Phaser.Scene {
         this.activateShield();
       }
     });
+
+    const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const idleKey = `${cowboyTypeKey}_idle`;
     
-    if (now >= this.nextShotTime && this.cowboy.anims.currentAnim?.key === 'idle') {
+    if (now >= this.nextShotTime && this.cowboy.anims.currentAnim?.key === idleKey) {
       this.playQuickDraw();
       this.scheduleRandomShot();
     }
@@ -253,21 +258,26 @@ class ShowdownScene extends Phaser.Scene {
   playQuickDraw() {
     if (this.cowboyHealth <= 0) return;
     
-    if (this.cowboy.anims.currentAnim?.key !== 'quickDraw') {
-      this.cowboy.play('quickDraw');
-      
-      this.cowboy.on('animationupdate', (animation, frame) => {
-        if (frame.index === this.shotFrameToCheck) {
-          this.checkShotResult();
-          this.cowboy.off('animationupdate');
-        }
-      });
-      
-      this.cowboy.once('animationcomplete', () => {
-        this.cowboy.play('idle');
-      });
+    const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const quickDrawKey = `${cowboyTypeKey}_quickDraw`;
+    const idleKey = `${cowboyTypeKey}_idle`;
+    
+    if (this.cowboy.anims.currentAnim?.key !== quickDrawKey) {
+        this.cowboy.play(quickDrawKey);
+        
+        this.cowboy.on('animationupdate', (animation, frame) => {
+            if (frame.index === this.shotFrameToCheck) {
+                this.checkShotResult();
+                this.cowboy.off('animationupdate');
+            }
+        });
+        
+        this.cowboy.once('animationcomplete', () => {
+            this.cowboy.play(idleKey);
+        });
     }
   }
+
   checkShotResult() {
     if (this.shieldActive) {
       console.log("blocked!");
@@ -462,6 +472,8 @@ class ShowdownScene extends Phaser.Scene {
     console.log("Wizard defeated!");
     this.wizard.setTint(0x000000);
     this.wizard.anims.stop();
+
+    this.nextShotTime = Infinity;
     
     this.isWizardAttacking = false;
     this.shieldActive = false;
@@ -548,54 +560,6 @@ class ShowdownScene extends Phaser.Scene {
     this.confirmationText.setVisible(false);
     this.yesButton.setVisible(false);
     this.noButton.setVisible(false);
-  }
-  resetGame() {
-    this.cowboyData = this.game.registry.get('cowboyData') || { type: 'default' };
-    const cowboyType = this.cowboyTypes[this.cowboyData.type] || this.cowboyTypes.default;
-
-    this.cowboyMaxHealth = cowboyType.maxHealth;
-    this.cowboyHealth = this.cowboyMaxHealth;
-    this.cowboyShotDamage = cowboyType.shotDamage;
-    this.cowboyMinReset = cowboyType.minReset;
-    this.cowboyMaxReset = cowboyType.maxReset;
-    
-    this.shieldActive = false;
-    this.nextShotTime = 0;
-    this.isWizardAttacking = false;
-    this.attackCooldown = false;
-    this.shieldCooldown = false;
-
-    this.wizardHealth = this.wizardMaxHealth;
-    this.wizard.setTint(0xffffff);
-    this.wizard.setTexture('wizardOne');
-    this.shield.setVisible(false);
-
-    this.cowboy.setTexture(cowboyType.texture);
-    this.cowboy.setTint(0xffffff);
-    this.cowboy.play('idle');
-
-    this.updateCowboyHealthBar();
-    this.updateWizardHealthBar();
-
-    this.shieldCooldownIndicator.setFrame(7);
-    this.fireballCooldownIndicator.setFrame(7);
-
-    if (this.attackChargeTimer) {
-        this.attackChargeTimer.destroy();
-        this.attackChargeTimer = null;
-    }
-    if (this.shieldCooldownTimer) {
-        this.shieldCooldownTimer.destroy();
-        this.shieldCooldownTimer = null;
-    }
-    if (this.attackCooldownTimer) {
-        this.attackCooldownTimer.destroy();
-        this.attackCooldownTimer = null;
-    }
-
-    this.scheduleRandomShot();
-
-    this.hideConfirmationBox();
   }
 
   createAnimationIfNotExists(key, config) {

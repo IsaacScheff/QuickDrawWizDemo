@@ -69,7 +69,7 @@ export default class SelectCowboyScene extends Phaser.Scene {
         
         cowboyTypes.forEach(type => {
             this.anims.create({
-                key: `${type}_idle`,
+                key: `${type}_smoking`,
                 frames: this.anims.generateFrameNumbers(type, { 
                     start: 65, 
                     end: 73 
@@ -97,7 +97,7 @@ export default class SelectCowboyScene extends Phaser.Scene {
         const cowboy = this.add.sprite(
             170, yPosition - 6, // Right of button
             spriteKey
-        ).play(`${spriteKey}_idle`);
+        ).play(`${spriteKey}_smoking`);
 
         cowboy.setScale(0.7);
 
