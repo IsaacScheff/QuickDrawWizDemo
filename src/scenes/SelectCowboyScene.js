@@ -68,15 +68,19 @@ export default class SelectCowboyScene extends Phaser.Scene {
         const cowboyTypes = ['cowboy', 'cowboyRedbeard', 'cowboyWhitesuit'];
         
         cowboyTypes.forEach(type => {
-            this.anims.create({
-                key: `${type}_smoking`,
-                frames: this.anims.generateFrameNumbers(type, { 
-                    start: 65, 
-                    end: 73 
-                }),
-                frameRate: 10,
-                repeat: -1
-            });
+            const animKey = `${type}_smoking`;
+            
+            if (!this.anims.exists(animKey)) {
+                this.anims.create({
+                    key: animKey,
+                    frames: this.anims.generateFrameNumbers(type, { 
+                        start: 65, 
+                        end: 73 
+                    }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+            }
         });
     }
 
