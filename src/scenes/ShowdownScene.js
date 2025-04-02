@@ -131,7 +131,6 @@ class ShowdownScene extends Phaser.Scene {
       repeat: 0
     });
 
-    // Create spell icon animations
     this.createAnimationIfNotExists('shieldIconCooldown', {
       texture: 'shieldSpellIcon',
       frames: { start: 0, end: 7 },

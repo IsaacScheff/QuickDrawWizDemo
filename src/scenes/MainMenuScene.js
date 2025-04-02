@@ -1,93 +1,63 @@
 export default class MainMenuScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MainMenuScene' });
+        this.backgroundColor = 0x2e2249;
+    }
+
+    preload() {
+        this.load.bitmapFont('pixelFont', 'assets/font/pixel_font.png', 'assets/font/pixel.xml');
     }
 
     create() {
-        this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x222034)
-            .setOrigin(0);
+        this.cameras.main.setBackgroundColor(this.backgroundColor);
         
-        const tutorialButton = this.add.rectangle(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY - 60,
-            300,
-            60,
-            0x4a4a8a
-        ).setInteractive();
-        
-        const tutorialText = this.add.text(
-            tutorialButton.x,
-            tutorialButton.y,
-            'TUTORIAL',
-            { 
-                fontSize: '32px',
-                color: '#FFFFFF',
-                fontStyle: 'bold'
-            }
+        const title = this.add.bitmapText(
+            128, 40, 
+            'pixelFont', 
+            'MAIN MENU',
+            16
         ).setOrigin(0.5);
         
-        const showdownButton = this.add.rectangle(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY + 60,
-            300,
-            60,
-            0x8a4a4a
-        ).setInteractive();
+        const tutorialButton = this.createMenuButton(100, 'TUTORIAL', 0x5d5dbb, 0x7d7ddb, 'TutorialScene');
         
-        const showdownText = this.add.text(
-            showdownButton.x,
-            showdownButton.y,
-            'SHOWDOWN',
-            { 
-                fontSize: '32px',
-                color: '#FFFFFF',
-                fontStyle: 'bold'
-            }
-        ).setOrigin(0.5);
+        const showdownButton = this.createMenuButton(140, 'NEW RUN', 0xbb5d5d, 0xdb7d7d, 'ShowdownScene');
         
-        tutorialButton.on('pointerover', () => {
-            tutorialButton.setFillStyle(0x6a6aaa);
-        });
+        const freeDuelButton = this.createMenuButton(180, 'FREE DUEL', 0x5dbb5d, 0x7ddb7d, 'SelectCowboyScene');
         
-        tutorialButton.on('pointerout', () => {
-            tutorialButton.setFillStyle(0x4a4a8a);
-        });
-        
-        showdownButton.on('pointerover', () => {
-            showdownButton.setFillStyle(0xaa6a6a);
-        });
-        
-        showdownButton.on('pointerout', () => {
-            showdownButton.setFillStyle(0x8a4a4a);
-        });
-        
-        tutorialButton.on('pointerdown', () => {
-            tutorialButton.setFillStyle(0x3a3a7a);
-        });
-        
-        tutorialButton.on('pointerup', () => {
-            tutorialButton.setFillStyle(0x4a4a8a);
-            this.scene.start('TutorialScene');
-        });
-        
-        showdownButton.on('pointerdown', () => {
-            showdownButton.setFillStyle(0x7a3a3a);
-        });
-        
-        showdownButton.on('pointerup', () => {
-            showdownButton.setFillStyle(0x8a4a4a);
-            this.game.registry.set('cowboyData', { type: 'cowboy' });
-            this.scene.start('ShowdownScene');
-        });
+        // Border
+        this.add.rectangle(0, 0, 256, 224, 0x000000, 0)
+            .setOrigin(0)
+            .setStrokeStyle(2, 0xffffff);
+    }
 
-        this.add.text(
-            this.cameras.main.centerX,
-            this.cameras.main.height - 30,
-            'Click to select mode',
-            { 
-                fontSize: '16px',
-                color: '#AAAAAA'
-            }
+    createMenuButton(yPos, text, normalColor, hoverColor, targetScene) {
+        const button = this.add.rectangle(
+            128, yPos, 
+            150, 24,
+            normalColor
+        ).setInteractive();
+        
+        const buttonText = this.add.bitmapText(
+            button.x, button.y,
+            'pixelFont',
+            text,
+            8
         ).setOrigin(0.5);
+        
+        // Hover effects
+        button.on('pointerover', () => {
+            button.setFillStyle(hoverColor);
+        });
+        
+        button.on('pointerout', () => {
+            button.setFillStyle(normalColor);
+        });
+        
+        // Click handler
+        button.on('pointerdown', () => {
+            this.scene.start(targetScene);
+        });
+        
+        return button;
     }
 }
