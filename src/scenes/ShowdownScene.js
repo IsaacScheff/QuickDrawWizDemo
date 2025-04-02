@@ -1,9 +1,3 @@
-//TODO: add different cowboy enemies
-//TODO: add a type of match where there is an enemy on each side; 
-// player must switch which side they are looking at before shielding 
-// using either the arrow keys or H and L 
-// (??this might not work great but I'm tempted to sneak vim bindings into the control options) 
-// could do J and K or J and L or some other configuration that allows home row use still
 import Phaser from 'phaser';
 
 class ShowdownScene extends Phaser.Scene {
@@ -37,17 +31,30 @@ class ShowdownScene extends Phaser.Scene {
     this.backgroundColor = 0xadd8e6
 
     this.wizardMaxHealth = 100;
+
+    this.wizardFacingRight = true;
   }
 
   cowboyTypes = {
     default: {
+      texture: 'cowboy',
+      maxHealth: 100,
+      shotDamage: 80,
+      idleAnim: { start: 0, end: 6, frameRate: 10 },
+      quickDrawAnim: { start: 14, end: 31, frameRate: 20 },
+      minReset: 2000,
+      maxReset: 4000,
+      isDual: false
+  },
+    cowboy: {
         texture: 'cowboy',
         maxHealth: 100,
         shotDamage: 80,
         idleAnim: { start: 0, end: 6, frameRate: 10 },
         quickDrawAnim: { start: 14, end: 31, frameRate: 20 },
         minReset: 2000,
-        maxReset: 4000
+        maxReset: 4000,
+        isDual: true
     },
     cowboyRedbeard: {
         texture: 'cowboyRedbeard',
@@ -56,7 +63,8 @@ class ShowdownScene extends Phaser.Scene {
         idleAnim: { start: 0, end: 6, frameRate: 8 },
         quickDrawAnim: { start: 14, end: 31, frameRate: 18 },
         minReset: 2500,
-        maxReset: 4500
+        maxReset: 4500,
+        isDual: false
     },
     cowboyWhitesuit: {
         texture: 'cowboyWhitesuit',
@@ -65,8 +73,19 @@ class ShowdownScene extends Phaser.Scene {
         idleAnim: { start: 0, end: 6, frameRate: 12 },
         quickDrawAnim: { start: 14, end: 31, frameRate: 24 },
         minReset: 1500,
-        maxReset: 3500
-    }
+        maxReset: 3500,
+        isDual: false
+    },
+    // cowboyDuo: {
+    //   texture: 'cowboy', 
+    //   maxHealth: 150, // Combined health
+    //   shotDamage: 30, // Per cowboy
+    //   idleAnim: { start: 0, end: 6, frameRate: 10 },
+    //   quickDrawAnim: { start: 14, end: 31, frameRate: 20 },
+    //   minReset: 1800,
+    //   maxReset: 3200,
+    //   isDual: true 
+    // }
   };
 
   preload() {
@@ -146,18 +165,32 @@ class ShowdownScene extends Phaser.Scene {
       repeat: 0
     });
 
-    this.cowboy = this.add.sprite(190, 130, cowboyType.texture); 
-    this.wizard = this.add.sprite(66, 130, 'wizardOne');
-
+    if (cowboyType.isDual) {
+      this.wizard = this.add.sprite(128, 130, 'wizardOne'); // Centered
+      this.leftCowboy = this.add.sprite(40, 130, cowboyType.texture).setFlipX(true);
+      this.rightCowboy = this.add.sprite(190, 130, cowboyType.texture);
+      this.activeCowboys = [this.leftCowboy, this.rightCowboy];
+      this.leftCowboy.play(idleKey);
+      this.rightCowboy.play(idleKey);
+      this.createDualCowboyHealthBars(); 
+    } else {
+      this.cowboy = this.add.sprite(190, 130, cowboyType.texture);
+      this.wizard = this.add.sprite(66, 130, 'wizardOne');
+      this.cowboy.play(idleKey);
+      this.createSingleCowboyHealthBar();
+    }
     this.nextShotTime = this.time.now + Phaser.Math.Between(
         cowboyType.minReset, 
         cowboyType.maxReset
     );
-    this.cowboy.play(idleKey);
 
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.fKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+    this.leftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
+    this.rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+    this.hKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
+    this.lKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
     
     this.shield = this.add.image(this.wizard.x + 20, this.wizard.y, 'wizardShield')
       .setVisible(false)
@@ -211,9 +244,14 @@ class ShowdownScene extends Phaser.Scene {
     });
 
     const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const cowboyType = this.cowboyTypes[cowboyTypeKey];
     const idleKey = `${cowboyTypeKey}_idle`;
-    
-    if (now >= this.nextShotTime && this.cowboy.anims.currentAnim?.key === idleKey) {
+
+    const activeCowboy = cowboyType.isDual ? 
+      Phaser.Math.RND.pick([this.leftCowboy, this.rightCowboy]) : 
+      this.cowboy;
+
+    if (now >= this.nextShotTime && activeCowboy.anims.currentAnim?.key === idleKey) {
       this.playQuickDraw();
       this.scheduleRandomShot();
     }
@@ -224,6 +262,19 @@ class ShowdownScene extends Phaser.Scene {
 
     if (Phaser.Input.Keyboard.JustDown(this.fKey) && !this.isWizardAttacking && !this.attackCooldown) {
       this.startWizardAttack();
+    }
+
+    if (Phaser.Input.Keyboard.JustDown(this.leftKey)) {
+      this.flipWizard('left');
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.rightKey)) {
+      this.flipWizard('right');
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.hKey)) { // H for left
+      this.flipWizard('left');
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.lKey)) { // L for right
+      this.flipWizard('right');
     }
 
     this.updateShieldCooldownVisual();
@@ -259,22 +310,41 @@ class ShowdownScene extends Phaser.Scene {
     if (this.cowboyHealth <= 0) return;
     
     const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const cowboyType = this.cowboyTypes[cowboyTypeKey];
     const quickDrawKey = `${cowboyTypeKey}_quickDraw`;
     const idleKey = `${cowboyTypeKey}_idle`;
     
-    if (this.cowboy.anims.currentAnim?.key !== quickDrawKey) {
-        this.cowboy.play(quickDrawKey);
+    if (cowboyType.isDual) {
+        const shooter = Phaser.Math.RND.pick(this.activeCowboys);
         
-        this.cowboy.on('animationupdate', (animation, frame) => {
+        if (shooter.anims.currentAnim?.key !== quickDrawKey) {
+            shooter.play(quickDrawKey);
+            
+            shooter.on('animationupdate', (animation, frame) => {
+                if (frame.index === this.shotFrameToCheck) {
+                    this.checkShotResult();
+                    shooter.off('animationupdate');
+                }
+            });
+            
+            shooter.once('animationcomplete', () => {
+                shooter.play(idleKey);
+            });
+        }
+    } else {
+      if (this.cowboy.anims.currentAnim?.key !== quickDrawKey) {
+          this.cowboy.play(quickDrawKey);
+          this.cowboy.on('animationupdate', (animation, frame) => {
             if (frame.index === this.shotFrameToCheck) {
                 this.checkShotResult();
                 this.cowboy.off('animationupdate');
             }
-        });
-        
-        this.cowboy.once('animationcomplete', () => {
-            this.cowboy.play(idleKey);
-        });
+          });
+          
+          this.cowboy.once('animationcomplete', () => {
+              this.cowboy.play(idleKey);
+          });
+        }
     }
   }
 
@@ -365,22 +435,49 @@ class ShowdownScene extends Phaser.Scene {
     this.isWizardAttacking = false;
   }
 
+  // damageCowboy(amount) {
+  //   this.cowboyHealth = Phaser.Math.Clamp(this.cowboyHealth - amount, 0, this.cowboyMaxHealth);
+  //   this.updateCowboyHealthBar();
+    
+  //   if (this.cowboyHealth <= 0) {
+  //     this.cowboy.tint = 0x000000;
+  //       this.cowboyDefeated();
+  //   }
+  // }
   damageCowboy(amount) {
     this.cowboyHealth = Phaser.Math.Clamp(this.cowboyHealth - amount, 0, this.cowboyMaxHealth);
     this.updateCowboyHealthBar();
     
     if (this.cowboyHealth <= 0) {
-      this.cowboy.tint = 0x000000;
+        const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+        const cowboyType = this.cowboyTypes[cowboyTypeKey];
+        
+        if (cowboyType.isDual) {
+            this.leftCowboy.tint = 0x000000;
+            this.rightCowboy.tint = 0x000000;
+        } else {
+            this.cowboy.tint = 0x000000;
+        }
         this.cowboyDefeated();
     }
   }
   
   updateCowboyHealthBar() {
+    const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const cowboyType = this.cowboyTypes[cowboyTypeKey];
     const healthPercent = this.cowboyHealth / this.cowboyMaxHealth;
     
-    this.cowboyHealthBar.clear()
-        .fillStyle(0x00ff00, 1)
-        .fillRect(190 - 25, 130 - 30, 50 * healthPercent, 5);
+    this.cowboyHealthBar.clear();
+    
+    if (cowboyType.isDual) {
+        const width = (190 - 40 + 50) * healthPercent;
+        this.cowboyHealthBar.fillStyle(0x00ff00, 1)
+            .fillRect(40 - 25, 130 - 30, width, 5);
+    } else {
+        const width = 50 * healthPercent;
+        this.cowboyHealthBar.fillStyle(0x00ff00, 1)
+            .fillRect(190 - 25, 130 - 30, width, 5);
+    }
     
     if (healthPercent < 0.3) {
         this.cowboyHealthBar.fillStyle(0xff0000, 1);
@@ -392,17 +489,32 @@ class ShowdownScene extends Phaser.Scene {
   flashCowboyRed() {
     if (this.cowboyHealth <= 0) return;
 
+    const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const cowboyType = this.cowboyTypes[cowboyTypeKey];
+
     this.tweens.addCounter({
-      from: 0,
-      to: 3,
-      duration: 300,
-      onUpdate: tween => {
-        const value = Math.floor(tween.getValue());
-        this.cowboy.tint = value % 2 === 0 ? 0xff0000 : 0xffffff;
-      },
-      onComplete: () => {
-        this.cowboy.tint = 0xffffff;
-      }
+        from: 0,
+        to: 3,
+        duration: 300,
+        onUpdate: tween => {
+            const value = Math.floor(tween.getValue());
+            const tint = value % 2 === 0 ? 0xff0000 : 0xffffff;
+            
+            if (cowboyType.isDual) {
+                this.leftCowboy.tint = tint;
+                this.rightCowboy.tint = tint;
+            } else {
+                this.cowboy.tint = tint;
+            }
+        },
+        onComplete: () => {
+            if (cowboyType.isDual) {
+                this.leftCowboy.tint = 0xffffff;
+                this.rightCowboy.tint = 0xffffff;
+            } else {
+                this.cowboy.tint = 0xffffff;
+            }
+        }
     });
   }
 
@@ -432,15 +544,22 @@ class ShowdownScene extends Phaser.Scene {
   cowboyDefeated() {
     // Play defeat animation or handle game over
     console.log("Cowboy defeated!");
-    this.cowboy.anims.stop();
-    this.cowboy.tint = 0x000000;
+    const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const cowboyType = this.cowboyTypes[cowboyTypeKey];
+
+    if (cowboyType.isDual) {
+        this.leftCowboy.anims.stop();
+        this.rightCowboy.anims.stop();
+        this.leftCowboy.tint = 0x000000;
+        this.rightCowboy.tint = 0x000000;
+    } else {
+        this.cowboy.anims.stop();
+        this.cowboy.tint = 0x000000;
+    }
 
     this.nextShotTime = Infinity;
-
-    this.time.delayedCall(1000, () => {
-      this.showConfirmationBox();
-    });
-  }
+    this.time.delayedCall(1000, () => this.showConfirmationBox());
+}
 
   updateWizardHealthBar() {
     const healthPercent = this.wizardHealth / this.wizardMaxHealth;
@@ -583,6 +702,42 @@ class ShowdownScene extends Phaser.Scene {
         } catch (error) {
             console.error(`Failed to create animation "${key}":`, error);
         }
+    }
+  }
+  createSingleCowboyHealthBar() {
+    this.cowboyHealthBarBg = this.add.graphics()
+        .fillStyle(0xff0000, 1)
+        .fillRect(190 - 25, 130 - 30, 50, 5);
+
+    this.cowboyHealthBar = this.add.graphics()
+        .fillStyle(0x00ff00, 1)
+        .fillRect(190 - 25, 130 - 30, 50, 5);
+  }
+
+  createDualCowboyHealthBars() {
+      // Combined health bar background
+      this.cowboyHealthBarBg = this.add.graphics()
+          .fillStyle(0xff0000, 1)
+          .fillRect(40 - 25, 130 - 30, 190 - 40 + 50, 5);
+
+      // Combined health bar
+      this.cowboyHealthBar = this.add.graphics()
+          .fillStyle(0x00ff00, 1)
+          .fillRect(40 - 25, 130 - 30, 190 - 40 + 50, 5);
+  }
+
+  flipWizard(direction) {
+    const shouldFaceRight = direction === 'right';
+    
+    if (shouldFaceRight !== this.wizardFacingRight) {
+      this.wizard.setFlipX(!shouldFaceRight);
+      this.wizardFacingRight = shouldFaceRight;
+      
+      // Adjust shield position based on direction
+      this.shield.setPosition(
+        this.wizard.x + (shouldFaceRight ? 20 : -20), 
+        this.wizard.y
+      );
     }
   }
 }
