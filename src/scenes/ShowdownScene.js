@@ -31,7 +31,7 @@ class ShowdownScene extends Phaser.Scene {
     
     this.backgroundColor = 0xadd8e6
 
-    this.wizardMaxHealth = 1000;
+    this.wizardMaxHealth = 100;
 
     this.wizardFacingRight = true;
   }
@@ -291,8 +291,10 @@ class ShowdownScene extends Phaser.Scene {
       console.log("blocked!");
       this.flashShieldWhite();
     } else {
-      console.log("hit!");
-      this.damageWizard(this.cowboyShotDamage);
+      const cowboyType = this.cowboyTypes[this.game.registry.get('cowboyData') || 'default'];
+      const damage = cowboyType.shotDamage;
+      console.log(`hit! Damage: ${damage}`);
+      this.damageWizard(damage);
       this.flashWizardRed();
       this.interruptWizardAttack();
     }
@@ -476,12 +478,16 @@ class ShowdownScene extends Phaser.Scene {
   }
 
   damageWizard(amount) {
-    this.wizardHealth = Phaser.Math.Clamp(this.wizardHealth - amount, 0, this.wizardMaxHealth);
+    const newHealth = this.wizardHealth - amount;
+    this.wizardHealth = Phaser.Math.Clamp(newHealth, 0, this.wizardMaxHealth);
+    
+    console.log(`Wizard took ${amount} damage. Health: ${this.wizardHealth}/${this.wizardMaxHealth}`);
+    
     this.updateWizardHealthBar();
     
     if (this.wizardHealth <= 0) {
         this.wizardDefeated();
-    }
+    } 
   }
 
   wizardDefeated() {
@@ -595,7 +601,6 @@ class ShowdownScene extends Phaser.Scene {
                 frameRate: config.frameRate,
                 repeat: config.repeat
             });
-            console.log(`Created animation "${key}" using texture "${config.texture}"`);
         } catch (error) {
             console.error(`Failed to create animation "${key}":`, error);
         }
