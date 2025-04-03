@@ -30,9 +30,15 @@ class ShowdownScene extends Phaser.Scene {
     
     this.backgroundColor = 0xadd8e6
 
-    this.wizardMaxHealth = 100;
+    this.wizardMaxHealth = 1000;
 
     this.wizardFacingRight = true;
+
+    this.leftCowboyHealth = 0;
+    this.rightCowboyHealth = 0;
+    this.leftCowboyMaxHealth = 0;
+    this.rightCowboyMaxHealth = 0;
+    this.targetCowboy = null;
   }
 
   cowboyTypes = {
@@ -167,8 +173,15 @@ class ShowdownScene extends Phaser.Scene {
 
     if (cowboyType.isDual) {
       this.wizard = this.add.sprite(128, 130, 'wizardOne'); // Centered
+      this.targetCowboy = this.wizardFacingRight ? 'right' : 'left';
       this.leftCowboy = this.add.sprite(40, 130, cowboyType.texture).setFlipX(true);
       this.rightCowboy = this.add.sprite(190, 130, cowboyType.texture);
+
+      this.leftCowboyMaxHealth = cowboyType.maxHealth;
+      this.rightCowboyMaxHealth = cowboyType.maxHealth;
+      this.leftCowboyHealth = this.leftCowboyMaxHealth;
+      this.rightCowboyHealth = this.rightCowboyMaxHealth;
+
       this.activeCowboys = [this.leftCowboy, this.rightCowboy];
       this.leftCowboy.play(idleKey);
       this.rightCowboy.play(idleKey);
@@ -212,14 +225,8 @@ class ShowdownScene extends Phaser.Scene {
     this.cowboyHealthBar = this.add.graphics()
         .fillStyle(0x00ff00, 1)
         .fillRect(190 - 25, 130 - 30, 50, 5);
-
-    this.wizardHealthBarBg = this.add.graphics()
-    .fillStyle(0xff0000, 1)
-    .fillRect(66 - 25, 130 - 30, 50, 5);
-
-    this.wizardHealthBar = this.add.graphics()
-    .fillStyle(0x00ff00, 1)
-    .fillRect(66 - 25, 130 - 30, 50, 5);
+        
+    this.createWizardHealthBar(this.wizard.x, this.wizard.y);
 
     this.createConfirmationBox();
   }
@@ -435,86 +442,104 @@ class ShowdownScene extends Phaser.Scene {
     this.isWizardAttacking = false;
   }
 
-  // damageCowboy(amount) {
-  //   this.cowboyHealth = Phaser.Math.Clamp(this.cowboyHealth - amount, 0, this.cowboyMaxHealth);
-  //   this.updateCowboyHealthBar();
-    
-  //   if (this.cowboyHealth <= 0) {
-  //     this.cowboy.tint = 0x000000;
-  //       this.cowboyDefeated();
-  //   }
-  // }
   damageCowboy(amount) {
-    this.cowboyHealth = Phaser.Math.Clamp(this.cowboyHealth - amount, 0, this.cowboyMaxHealth);
-    this.updateCowboyHealthBar();
+    const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
+    const cowboyType = this.cowboyTypes[cowboyTypeKey];
     
-    if (this.cowboyHealth <= 0) {
-        const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
-        const cowboyType = this.cowboyTypes[cowboyTypeKey];
-        
-        if (cowboyType.isDual) {
-            this.leftCowboy.tint = 0x000000;
-            this.rightCowboy.tint = 0x000000;
-        } else {
-            this.cowboy.tint = 0x000000;
+    if (cowboyType.isDual) {
+      if (this.targetCowboy === 'left') {
+        this.leftCowboyHealth = Phaser.Math.Clamp(this.leftCowboyHealth - amount, 0, this.leftCowboyMaxHealth);
+        if (this.leftCowboyHealth <= 0) {
+          this.leftCowboy.tint = 0x000000;
+          this.checkDualDefeat();
         }
+      } else {
+        this.rightCowboyHealth = Phaser.Math.Clamp(this.rightCowboyHealth - amount, 0, this.rightCowboyMaxHealth);
+        if (this.rightCowboyHealth <= 0) {
+          this.rightCowboy.tint = 0x000000;
+          this.checkDualDefeat();
+        }
+      }
+    } else {
+      this.cowboyHealth = Phaser.Math.Clamp(this.cowboyHealth - amount, 0, this.cowboyMaxHealth);
+      if (this.cowboyHealth <= 0) {
+        this.cowboy.tint = 0x000000;
         this.cowboyDefeated();
+      }
     }
+    this.updateCowboyHealthBar();
   }
   
+  checkDualDefeat() {
+    if (this.leftCowboyHealth <= 0 && this.rightCowboyHealth <= 0) {
+      this.cowboyDefeated();
+    }
+  }
+
   updateCowboyHealthBar() {
     const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
     const cowboyType = this.cowboyTypes[cowboyTypeKey];
-    const healthPercent = this.cowboyHealth / this.cowboyMaxHealth;
-    
-    this.cowboyHealthBar.clear();
     
     if (cowboyType.isDual) {
-        const width = (190 - 40 + 50) * healthPercent;
-        this.cowboyHealthBar.fillStyle(0x00ff00, 1)
-            .fillRect(40 - 25, 130 - 30, width, 5);
+      // Update left cowboy health
+      const leftHealthPercent = this.leftCowboyHealth / this.leftCowboyMaxHealth;
+      this.leftCowboyHealthBar.clear()
+        .fillStyle(this.getHealthColor(leftHealthPercent), 1)
+        .fillRect(40 - 25, 130 - 40, 50 * leftHealthPercent, 5);
+  
+      // Update right cowboy health
+      const rightHealthPercent = this.rightCowboyHealth / this.rightCowboyMaxHealth;
+      this.rightCowboyHealthBar.clear()
+        .fillStyle(this.getHealthColor(rightHealthPercent), 1)
+        .fillRect(190 - 25, 130 - 40, 50 * rightHealthPercent, 5);
     } else {
-        const width = 50 * healthPercent;
-        this.cowboyHealthBar.fillStyle(0x00ff00, 1)
-            .fillRect(190 - 25, 130 - 30, width, 5);
+      const healthPercent = this.cowboyHealth / this.cowboyMaxHealth;
+      this.cowboyHealthBar.clear()
+        .fillStyle(this.getHealthColor(healthPercent), 1)
+        .fillRect(190 - 25, 130 - 30, 50 * healthPercent, 5);
     }
-    
-    if (healthPercent < 0.3) {
-        this.cowboyHealthBar.fillStyle(0xff0000, 1);
-    } else if (healthPercent < 0.6) {
-        this.cowboyHealthBar.fillStyle(0xffff00, 1);
-    }
+  }
+  
+  // Helper method for health bar colors
+  getHealthColor(percent) {
+    if (percent < 0.3) return 0xff0000;
+    if (percent < 0.6) return 0xffff00;
+    return 0x00ff00;
   }
 
   flashCowboyRed() {
-    if (this.cowboyHealth <= 0) return;
-
     const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
     const cowboyType = this.cowboyTypes[cowboyTypeKey];
-
+  
     this.tweens.addCounter({
-        from: 0,
-        to: 3,
-        duration: 300,
-        onUpdate: tween => {
-            const value = Math.floor(tween.getValue());
-            const tint = value % 2 === 0 ? 0xff0000 : 0xffffff;
-            
-            if (cowboyType.isDual) {
-                this.leftCowboy.tint = tint;
-                this.rightCowboy.tint = tint;
-            } else {
-                this.cowboy.tint = tint;
-            }
-        },
-        onComplete: () => {
-            if (cowboyType.isDual) {
-                this.leftCowboy.tint = 0xffffff;
-                this.rightCowboy.tint = 0xffffff;
-            } else {
-                this.cowboy.tint = 0xffffff;
-            }
+      from: 0,
+      to: 3,
+      duration: 300,
+      onUpdate: tween => {
+        const value = Math.floor(tween.getValue());
+        const tint = value % 2 === 0 ? 0xff0000 : 0xffffff;
+        
+        if (cowboyType.isDual) {
+          if (this.targetCowboy === 'left') {
+            this.leftCowboy.tint = tint;
+          } else {
+            this.rightCowboy.tint = tint;
+          }
+        } else {
+          this.cowboy.tint = tint;
         }
+      },
+      onComplete: () => {
+        if (cowboyType.isDual) {
+          if (this.targetCowboy === 'left') {
+            this.leftCowboy.tint = this.leftCowboyHealth <= 0 ? 0x000000 : 0xffffff;
+          } else {
+            this.rightCowboy.tint = this.rightCowboyHealth <= 0 ? 0x000000 : 0xffffff;
+          }
+        } else {
+          this.cowboy.tint = this.cowboyHealth <= 0 ? 0x000000 : 0xffffff;
+        }
+      }
     });
   }
 
@@ -559,7 +584,7 @@ class ShowdownScene extends Phaser.Scene {
 
     this.nextShotTime = Infinity;
     this.time.delayedCall(1000, () => this.showConfirmationBox());
-}
+  }
 
   updateWizardHealthBar() {
     const healthPercent = this.wizardHealth / this.wizardMaxHealth;
@@ -575,7 +600,7 @@ class ShowdownScene extends Phaser.Scene {
         this.wizardHealthBar.fillStyle(0x00ff00, 1); //green
     }
     
-    this.wizardHealthBar.fillRect(66 - 25, 130 - 30, width, 5);
+    this.wizardHealthBar.fillRect(this.wizard.x - 25, this.wizard.y - 30, width, 5);
   }
 
   damageWizard(amount) {
@@ -715,15 +740,23 @@ class ShowdownScene extends Phaser.Scene {
   }
 
   createDualCowboyHealthBars() {
-      // Combined health bar background
-      this.cowboyHealthBarBg = this.add.graphics()
-          .fillStyle(0xff0000, 1)
-          .fillRect(40 - 25, 130 - 30, 190 - 40 + 50, 5);
-
-      // Combined health bar
-      this.cowboyHealthBar = this.add.graphics()
-          .fillStyle(0x00ff00, 1)
-          .fillRect(40 - 25, 130 - 30, 190 - 40 + 50, 5);
+    // Left cowboy health bar
+    this.leftCowboyHealthBarBg = this.add.graphics()
+      .fillStyle(0xff0000, 1)
+      .fillRect(40 - 25, 130 - 40, 50, 5);
+    
+    this.leftCowboyHealthBar = this.add.graphics()
+      .fillStyle(0x00ff00, 1)
+      .fillRect(40 - 25, 130 - 40, 50, 5);
+  
+    // Right cowboy health bar
+    this.rightCowboyHealthBarBg = this.add.graphics()
+      .fillStyle(0xff0000, 1)
+      .fillRect(190 - 25, 130 - 40, 50, 5);
+    
+    this.rightCowboyHealthBar = this.add.graphics()
+      .fillStyle(0x00ff00, 1)
+      .fillRect(190 - 25, 130 - 40, 50, 5);
   }
 
   flipWizard(direction) {
@@ -732,13 +765,26 @@ class ShowdownScene extends Phaser.Scene {
     if (shouldFaceRight !== this.wizardFacingRight) {
       this.wizard.setFlipX(!shouldFaceRight);
       this.wizardFacingRight = shouldFaceRight;
+      this.targetCowboy = shouldFaceRight ? 'right' : 'left';
       
-      // Adjust shield position based on direction
       this.shield.setPosition(
         this.wizard.x + (shouldFaceRight ? 20 : -20), 
         this.wizard.y
       );
     }
+  }
+
+  createWizardHealthBar(x, y) {
+    if (this.wizardHealthBarBg) this.wizardHealthBarBg.destroy();
+    if (this.wizardHealthBar) this.wizardHealthBar.destroy();
+
+    this.wizardHealthBarBg = this.add.graphics()
+        .fillStyle(0xff0000, 1)
+        .fillRect(x - 25, y - 30, 50, 5);
+
+    this.wizardHealthBar = this.add.graphics()
+        .fillStyle(0x00ff00, 1)
+        .fillRect(x - 25, y - 30, 50, 5);
   }
 }
 
