@@ -1,5 +1,6 @@
-import Cowboy from '../Cowboy.js';
+import Cowboy from '../Cowboy.js'
 import Phaser from 'phaser';
+import Spell from '../Spell.js';  
 
 class ShowdownScene extends Phaser.Scene {
   constructor() {
@@ -9,25 +10,6 @@ class ShowdownScene extends Phaser.Scene {
     this.shotFrameToCheck = 9;
     this.wizardOriginalTint = 0xffffff;
     this.shieldOriginalTint = 0xffffff;
-
-    this.isWizardAttacking = false;
-    this.attackChargeTimer = null;
-
-    this.wizAttackTime = 1000;
-
-    this.shieldCooldown = false;
-    this.shieldCooldownDuration = 1000;
-    this.shieldCooldownTimer = null;
-    this.lastShieldTime = 0;
-    this.shieldSpellFrameRate = 8 / (this.shieldCooldownDuration / 1000);
-    this.shieldTime = 500;
-
-    this.attackCooldown = false;
-    this.attackCooldownDuration = 500;
-    this.attackCooldownTimer = null;
-    this.lastAttackTime = 0;
-    this.fireballSpellFrameRate = 8 / (this.attackCooldownDuration / 1000);
-    this.attackDamage = 25;
     
     this.backgroundColor = 0xadd8e6
 
@@ -146,19 +128,23 @@ class ShowdownScene extends Phaser.Scene {
         });
     }
 
-    this.createAnimationIfNotExists('shieldIconCooldown', {
-      texture: 'shieldSpellIcon',
-      frames: { start: 0, end: 7 },
-      frameRate: this.shieldSpellFrameRate,
-      repeat: 0
-    });
-
-    this.createAnimationIfNotExists('fireballIconCooldown', {
-      texture: 'fireballSpellIcon',
-      frames: { start: 0, end: 7 },
-      frameRate: this.shieldSpellFrameRate,
-      repeat: 0
-    });
+    if (!this.anims.exists('shieldCooldown')) {
+      this.anims.create({
+        key: 'shieldCooldown',
+        frames: this.anims.generateFrameNumbers('shieldSpellIcon', { start: 0, end: 7 }),
+        frameRate: 8,
+        repeat: 0
+      });
+    }
+    
+    if (!this.anims.exists('fireballCooldown')) {
+      this.anims.create({
+        key: 'fireballCooldown',
+        frames: this.anims.generateFrameNumbers('fireballSpellIcon', { start: 0, end: 7 }),
+        frameRate: 8,
+        repeat: 0
+      });
+    }
 
     if (cowboyType.isDual) {
       this.wizard = this.add.sprite(128, 130, 'wizardOne');
@@ -193,12 +179,46 @@ class ShowdownScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(1);
 
-    this.shieldCooldownIndicator = this.add.sprite(100, 200, 'shieldSpellIcon').setInteractive();
-    this.shieldCooldownIndicator.setFrame(7);
-    this.updateShieldCooldownVisual();
-
-    this.fireballCooldownIndicator = this.add.sprite(140, 200, 'fireballSpellIcon').setInteractive();
-    this.fireballCooldownIndicator.setFrame(7);
+    this.spells = {
+      shield: new Spell(this, {
+          name: 'shield',
+          type: 'instant',
+          cooldownDuration: 1000,
+          castTime: 0,
+          iconTexture: 'shieldSpellIcon',
+          indicatorX: 100,
+          indicatorY: 200,
+          onCast: () => {
+              this.shieldActive = true;
+              this.shield.setVisible(true);
+              this.time.delayedCall(500, () => {
+                  this.shield.setVisible(false);
+                  this.shieldActive = false;
+              });
+          }
+      }),
+      
+      fireball: new Spell(this, {
+          name: 'fireball',
+          type: 'charged',
+          cooldownDuration: 500,
+          castTime: 1000,
+          iconTexture: 'fireballSpellIcon',
+          indicatorX: 140,
+          indicatorY: 200,
+          onCast: () => {
+              this.wizard.setTexture('wizardOneAttack');
+          },
+          onComplete: () => {
+              this.wizard.setTexture('wizardOne');
+              this.damageCowboy(25);
+              this.flashCowboyRed();
+          },
+          onInterrupt: () => {
+              this.wizard.setTexture('wizardOne');
+          }
+      })
+    };
     
     this.scheduleRandomShot();
 
@@ -218,18 +238,6 @@ class ShowdownScene extends Phaser.Scene {
         this.showConfirmationBox();
     }
 
-    this.fireballCooldownIndicator.on('pointerdown', () => {
-        if (!this.isWizardAttacking && !this.attackCooldown) {
-            this.startWizardAttack();
-        }
-    });
-
-    this.shieldCooldownIndicator.on('pointerdown', () => {
-        if (!this.isWizardAttacking) {
-            this.activateShield();
-        }
-    });
-
     if (now >= this.nextShotTime) {
         const shooter = Phaser.Math.RND.pick(activeCowboys);
         
@@ -241,12 +249,12 @@ class ShowdownScene extends Phaser.Scene {
         }
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && !this.isWizardAttacking) {
-        this.activateShield();
+    if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+      this.spells.shield.cast();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.fKey) && !this.isWizardAttacking && !this.attackCooldown) {
-        this.startWizardAttack();
+    if (Phaser.Input.Keyboard.JustDown(this.fKey)) {
+        this.spells.fireball.cast();
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.leftKey) || Phaser.Input.Keyboard.JustDown(this.hKey)) {
@@ -255,48 +263,29 @@ class ShowdownScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.rightKey) || Phaser.Input.Keyboard.JustDown(this.lKey)) {
         this.flipWizard('right');
     }
-
-    this.updateShieldCooldownVisual();
-    this.updateAttackCooldownVisual();
   }
   
   scheduleRandomShot() {
     const cowboyType = this.cowboyTypes[this.game.registry.get('cowboyData') || 'default'];
     const delay = Phaser.Math.Between(cowboyType.minReset, cowboyType.maxReset);
     this.nextShotTime = this.time.now + delay;
-}
-  
-  activateShield() {
-    if (!this.shieldActive && !this.shieldCooldown) {
-        this.shieldCooldownIndicator.setFrame(0);
-        this.shieldActive = true;
-        this.shield.setVisible(true);
-        this.lastShieldTime = this.time.now;
-        
-        this.time.delayedCall(this.shieldTime, () => {
-            this.shield.setVisible(false);
-            this.shieldActive = false;
-
-            this.shieldCooldown = true;
-            this.shieldCooldownTimer = this.time.delayedCall(this.shieldCooldownDuration, () => {
-                this.shieldCooldown = false;
-                this.shieldCooldownTimer = null;
-            });
-        });
-    }
   }
 
   checkShotResult() {
     if (this.shieldActive) {
-      console.log("blocked!");
-      this.flashShieldWhite();
+        console.log("blocked!");
+        this.flashShieldWhite();
     } else {
-      const cowboyType = this.cowboyTypes[this.game.registry.get('cowboyData') || 'default'];
-      const damage = cowboyType.shotDamage;
-      console.log(`hit! Damage: ${damage}`);
-      this.damageWizard(damage);
-      this.flashWizardRed();
-      this.interruptWizardAttack();
+        const cowboyType = this.cowboyTypes[this.game.registry.get('cowboyData') || 'default'];
+        const damage = cowboyType.shotDamage;
+        console.log(`hit! Damage: ${damage}`);
+        this.damageWizard(damage);
+        this.flashWizardRed();
+        
+        // Interrupt any active spells
+        if (this.spells.fireball.isActive) {
+            this.spells.fireball.interrupt();
+        }
     }
   }
   
@@ -332,47 +321,6 @@ class ShowdownScene extends Phaser.Scene {
         this.shield.setScale(1.0);
       }
     });
-  }
-
-  startWizardAttack() {
-    if (!this.isWizardAttacking && !this.attackCooldown) {
-      this.isWizardAttacking = true;
-      this.fireballCooldownIndicator.setFrame(0);
-        
-      this.wizard.setTexture('wizardOneAttack');
-        
-      this.attackChargeTimer = this.time.delayedCall(this.wizAttackTime, () => {
-        this.completeWizardAttack();
-            
-        this.attackCooldown = true;
-        this.lastAttackTime = this.time.now;
-        this.attackCooldownTimer = this.time.delayedCall(this.attackCooldownDuration, () => {
-          this.attackCooldown = false;
-            this.attackCooldownTimer = null;
-        });
-      });
-    }
-  }
-  
-  interruptWizardAttack() {
-    if (this.isWizardAttacking) {
-
-      if (this.attackChargeTimer) {
-        this.attackChargeTimer.destroy();
-        this.attackChargeTimer = null;
-      }
-
-      this.wizard.setTexture('wizardOne');
-      this.isWizardAttacking = false;
-    }
-  }
-  
-  completeWizardAttack() {    
-    this.damageCowboy(this.attackDamage);
-    this.flashCowboyRed();
-    
-    this.wizard.setTexture('wizardOne');
-    this.isWizardAttacking = false;
   }
 
   damageCowboy(amount) {
@@ -431,29 +379,6 @@ class ShowdownScene extends Phaser.Scene {
     });
   }
 
-  updateShieldCooldownVisual() {
-    if (this.shieldCooldown) {
-        if (!this.shieldCooldownIndicator.anims.isPlaying) {
-            this.shieldCooldownIndicator.play('shieldIconCooldown');
-        }
-    } else {
-        this.shieldCooldownIndicator.anims.stop();
-    }
-  }
-
-  updateAttackCooldownVisual() {
-    if (this.attackCooldown) {
-        if (!this.fireballCooldownIndicator.anims.isPlaying) {
-            this.fireballCooldownIndicator.play('fireballIconCooldown');
-        }
-    } else if(this.isWizardAttacking) {
-      this.fireballCooldownIndicator.setFrame(0);
-    } else {
-      this.fireballCooldownIndicator.anims.stop();
-      this.fireballCooldownIndicator.setFrame(7);
-    }
-  }
-
   cowboyDefeated() {
     console.log("Cowboy defeated!");
     this.nextShotTime = Infinity;
@@ -497,21 +422,18 @@ class ShowdownScene extends Phaser.Scene {
 
     this.nextShotTime = Infinity;
     
-    this.isWizardAttacking = false;
+    // Interrupt any active spells
+    Object.values(this.spells).forEach(spell => {
+        if (spell.isActive) {
+            spell.interrupt();
+        }
+    });
+    
     this.shieldActive = false;
     this.shield.setVisible(false);
-    
-    if (this.attackChargeTimer) {
-        this.attackChargeTimer.destroy();
-        this.attackChargeTimer = null;
-    }
-    if (this.shieldCooldownTimer) {
-        this.shieldCooldownTimer.destroy();
-        this.shieldCooldownTimer = null;
-    }
 
     this.time.delayedCall(1000, () => {
-      this.showConfirmationBox();
+        this.showConfirmationBox();
     });
   }
 
@@ -584,41 +506,22 @@ class ShowdownScene extends Phaser.Scene {
     this.noButton.setVisible(false);
   }
 
-  createAnimationIfNotExists(key, config) {
-    if (!this.anims.exists(key)) {
-        if (!this.textures.exists(config.texture)) {
-            console.error(`Texture "${config.texture}" not found for animation "${key}"`);
-            return;
-        }
-        
-        try {
-            this.anims.create({
-                key: key,
-                frames: this.anims.generateFrameNumbers(config.texture, {
-                    start: config.frames.start,
-                    end: config.frames.end
-                }),
-                frameRate: config.frameRate,
-                repeat: config.repeat
-            });
-        } catch (error) {
-            console.error(`Failed to create animation "${key}":`, error);
-        }
-    }
-  }
-
   flipWizard(direction) {
     const shouldFaceRight = direction === 'right';
     
     if (shouldFaceRight !== this.wizardFacingRight) {
-      this.wizard.setFlipX(!shouldFaceRight);
-      this.wizardFacingRight = shouldFaceRight;
-      this.targetCowboy = shouldFaceRight ? 'right' : 'left';
-      
-      this.shield.setPosition(
-        this.wizard.x + (shouldFaceRight ? 20 : -20), 
-        this.wizard.y
-      );
+        this.wizard.setFlipX(!shouldFaceRight);
+        this.wizardFacingRight = shouldFaceRight;
+        this.targetCowboy = shouldFaceRight ? 'right' : 'left';
+        
+        this.shield.setPosition(
+            this.wizard.x + (shouldFaceRight ? 20 : -20), 
+            this.wizard.y
+        );
+        
+        if (this.shieldActive) {
+            this.shield.setVisible(true);
+        }
     }
   }
 
