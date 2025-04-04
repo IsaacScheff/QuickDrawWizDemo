@@ -29,7 +29,7 @@ export default class Spell {
     }
   
     cast() {
-      if (this.isActive || this.isOnCooldown) return;
+      if (this.isActive || this.isOnCooldown || this.scene.isDefeated) return;
       
       this.isActive = true;
       this.cooldownIndicator.setFrame(0);

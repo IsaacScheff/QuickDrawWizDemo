@@ -16,6 +16,7 @@ class ShowdownScene extends Phaser.Scene {
     this.wizardMaxHealth = 100;
 
     this.wizardFacingRight = true;
+    this.isDefeated;
   }
 
   cowboyTypes = {
@@ -49,7 +50,7 @@ class ShowdownScene extends Phaser.Scene {
         maxReset: 4500,
         isDual: false
     },
-    cowboyWhitesuit: {
+    cowboyWhitesuit: { //final boss for first playtest? maybe even nerfed a bit
         texture: 'cowboyWhitesuit',
         maxHealth: 80,
         shotDamage: 100,
@@ -100,6 +101,7 @@ class ShowdownScene extends Phaser.Scene {
 
   create() {
     this.wizardHealth = this.wizardMaxHealth;
+    this.isDefeated = false;
 
     const cowboyTypeKey = this.game.registry.get('cowboyData') || 'default';
     const cowboyType = this.cowboyTypes[cowboyTypeKey];
@@ -234,13 +236,14 @@ class ShowdownScene extends Phaser.Scene {
   update() {
     const now = this.time.now;
 
-    // Find active cowboys
+    if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+      this.showConfirmationBox();
+    }
+
+    if (this.isDefeated) return;
+
     const activeCowboys = this.cowboys.filter(c => c.isActive);
     if (activeCowboys.length === 0) return;  // All cowboys defeated
-
-    if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
-        this.showConfirmationBox();
-    }
 
     if (now >= this.nextShotTime) {
         const shooter = Phaser.Math.RND.pick(activeCowboys);
@@ -421,6 +424,7 @@ class ShowdownScene extends Phaser.Scene {
 
   wizardDefeated() {
     console.log("Wizard defeated!");
+    this.isDefeated = true;
     this.wizard.setTint(0x000000);
     this.wizard.anims.stop();
 
