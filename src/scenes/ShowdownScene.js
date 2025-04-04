@@ -1,7 +1,8 @@
 import Cowboy from '../Cowboy.js'
-import Phaser from 'phaser';
-import Spell from '../Spell.js';  
 import cowboyTypes from '../cowboyTypes.js';
+import Phaser from 'phaser';
+import Spell from '../Spell.js';
+import spellTypes from '../spellTypes.js';  
 
 class ShowdownScene extends Phaser.Scene {
   constructor() {
@@ -20,6 +21,7 @@ class ShowdownScene extends Phaser.Scene {
     this.isDefeated;
 
     this.cowboyTypes = cowboyTypes;
+    this.spellTypes = spellTypes;
   }
 
   preload() {
@@ -134,46 +136,10 @@ class ShowdownScene extends Phaser.Scene {
     this.shield = this.add.image(this.wizard.x + 20, this.wizard.y, 'wizardShield')
       .setVisible(false)
       .setDepth(1);
-
+    
     this.spells = {
-      shield: new Spell(this, {
-          name: 'shield',
-          type: 'instant',
-          cooldownDuration: 1000,
-          castTime: 0,
-          iconTexture: 'shieldSpellIcon',
-          indicatorX: 100,
-          indicatorY: 200,
-          onCast: () => {
-              this.shieldActive = true;
-              this.shield.setVisible(true);
-              this.time.delayedCall(500, () => {
-                  this.shield.setVisible(false);
-                  this.shieldActive = false;
-              });
-          }
-      }),
-      
-      fireball: new Spell(this, {
-          name: 'fireball',
-          type: 'charged',
-          cooldownDuration: 500,
-          castTime: 1000,
-          iconTexture: 'fireballSpellIcon',
-          indicatorX: 140,
-          indicatorY: 200,
-          onCast: () => {
-              this.wizard.setTexture('wizardOneAttack');
-          },
-          onComplete: () => {
-              this.wizard.setTexture('wizardOne');
-              this.damageCowboy(25);
-              this.flashCowboyRed();
-          },
-          onInterrupt: () => {
-              this.wizard.setTexture('wizardOne');
-          }
-      })
+      shield: new Spell(this, this.spellTypes.shield),
+      fireball: new Spell(this, this.spellTypes.fireball)
     };
     
     this.scheduleRandomShot();

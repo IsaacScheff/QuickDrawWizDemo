@@ -10,6 +10,10 @@ export default class Spell {
       this.onCast = spellData.onCast;
       this.onComplete = spellData.onComplete;
       this.onInterrupt = spellData.onInterrupt;
+
+      this.onCast = () => spellData.onCast?.(this.scene);
+      this.onComplete = () => spellData.onComplete?.(this.scene);
+      this.onInterrupt = () => spellData.onInterrupt?.(this.scene);
       
       this.isActive = false;
       this.isOnCooldown = false;
