@@ -110,6 +110,10 @@ class ShowdownScene extends Phaser.Scene {
     this.add.image(0, 0, 'background').setOrigin(0, 0.2);
     this.cameras.main.setBackgroundColor(this.backgroundColor);
 
+    const effect = this.cameras.main.postFX.addColorMatrix();
+    const effectTwo = this.cameras.main.postFX.addVignette(0.5, 0.5, 1.1);
+    effect.vintagePinhole();
+
     if (!this.anims.exists(idleKey)) {
       this.anims.create({
           key: idleKey,
